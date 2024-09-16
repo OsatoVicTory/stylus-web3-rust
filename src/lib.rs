@@ -30,6 +30,7 @@ sol_storage! {
     pub struct Blog {
         mapping(address => uint256) points; // Track the number of points per user
         mapping(address => StorageVec<StorageString>) tasks; // Stores tasks completed by user
+        mapping(address => StorageVec<StorageString>) activities; // Stores tasks completed by user
     }
 }
 
@@ -50,6 +51,24 @@ impl Blog {
         new_task_slot.set_str(&task_id);
     }
 
+    pub fn transfer_token(&mut self, sender_address: Address, receiver_address: Address, amount: Uint<256, 4>, sender_activity: String, receiver_activity: String) {
+        let mut sender_accessor = self.points.setter(sender_address);
+        let sender_points = sender_accessor.get();
+        sender_accessor.set(sender_points - amount);
+
+        let mut sender_access = self.activities.setter(sender_address);
+        let mut sender_slot = sender_access.grow();
+        sender_slot.set_str(&sender_activity);
+
+        let mut receiver_accessor = self.points.setter(receiver_address);
+        let receiver_points = receiver_accessor.get();
+        receiver_accessor.set(receiver_points + amount);
+
+        let mut receiver_access = self.activities.setter(receiver_address);
+        let mut receiver_slot = receiver_access.grow();
+        receiver_slot.set_str(&receiver_activity);
+    }
+
     pub fn get_points(&self, user_address: Address) -> Uint<256, 4> {
         return self.points.get(user_address);
     }
@@ -63,5 +82,16 @@ impl Blog {
             }
         }
         tasks
+    }
+
+    pub fn get_activities(&self, user_address: Address) -> Vec<String> {
+        let activities_accessor = self.activities.get(user_address);
+        let mut activities = Vec::new();
+        for i in 0..activities_accessor.len() {
+            if let Some(activities_guard) = activities_accessor.get(i) {
+                activities.push(activities_guard.get_string());
+            }
+        }
+        activities
     }
 }
